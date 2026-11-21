@@ -1,0 +1,27 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Downloads folder (ignore received files, keep .gitkeep)
+downloads/*
+!downloads/.gitkeep
+
+# Environments
+env/
+venv/
+ENV/
+.venv/
+
+# OS metadata
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDEs
+.vscode/
+.idea/
+*.suo
+*.user
