@@ -5,11 +5,12 @@ __pycache__/
 *.so
 .Python
 
-# Downloads folder (ignore received files, keep .gitkeep)
+# Received files & temporary partial downloads (keep folder via .gitkeep)
 downloads/*
 !downloads/.gitkeep
+*.part
 
-# Environments
+# Virtual environments
 env/
 venv/
 ENV/

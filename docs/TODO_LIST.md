@@ -1,78 +1,143 @@
-# 📋 BẢNG KẾ HOẠCH & TIẾN ĐỘ THI CÔNG (2 TUẦN) - ĐỒ ÁN MẠNG MÁY TÍNH
+# 📋 KẾ HOẠCH TRIỂN KHAI & HƯỚNG DẪN CODE CHI TIẾT — TEAM 3P
 
-File Excel gốc tương ứng (có 4 Sheet riêng biệt): [Timeline_DoAn_MMT.xlsx](file:///c:/Users/gbao1/Downloads/project%20MMT/Team3p-MangMayTinh/docs/Timeline_DoAn_MMT.xlsx)
-
----
-
-## 📑 MỤC LỤC CÁC SHEET THEO NHÓM CÔNG VIỆC
-
-1. [Sheet 1: Tổng Quan (Master Timeline)](#1-sheet-tổng-quan-master-timeline)
-2. [Sheet 2: Thành Viên 1 - Core Network Lead](#2-sheet-thành-viên-1---core-network-lead)
-3. [Sheet 3: Thành Viên 2 - Transfer & Protocol](#3-sheet-thành-viên-2---transfer--protocol)
-4. [Sheet 4: Thành Viên 3 - Interactive UI & Client Logic](#4-sheet-thành-viên-3---interactive-ui--client-logic)
+- **Bảng tiến độ Excel (5 Sheet):** [KeHoach_DoAn_MMT_Den_08_12.xlsx](KeHoach_DoAn_MMT_Den_08_12.xlsx)
+- **Google Sheets tham khảo của nhóm:** https://docs.google.com/spreadsheets/d/19wJsfblAUUOLicFX8DJaN7HfkS6V1XD0JMvS2UbFOTE/edit?usp=sharing
+- **Mốc hoàn tất code & báo cáo:** `08/12/2026` | **Đệm tự check & luyện vấn đáp:** `09/12 – 12/12/2026`
 
 ---
 
-## 1. SHEET TỔNG QUAN (MASTER TIMELINE)
+## 🔄 Kiến Trúc 6 File Phẳng & Luồng Phối Hợp 3 Nhánh Git
 
-| Tuần | Deadline | Trọng tâm tuần | Thành viên 1<br>(Core Network Lead) | Thành viên 2<br>(Transfer & Protocol) | Thành viên 3<br>(UI & Client Logic) | Kết quả chốt (Milestone) |
-| :---: | :---: | :--- | :--- | :--- | :--- | :--- |
-| **Tuần 1** | Ngày 1 – 7 | **Nền tảng, Khung mạng P2P, UDP Discovery & Framing** | Cấu hình Socket UDP Broadcast (3s/lần), Lắng nghe cổng 9999, Quản lý danh sách Online Peer & Timeout 10s | Thiết kế Protocol Framing (Header MSG\|FILE\|BYE), Tạo TCP Echo Client/Server, Cơ chế đọc đúng byte stream | Xây dựng luồng nhập lệnh CLI (/list, /help, /quit), Tích hợp prompt_toolkit chống đè chữ khi gõ phím | **Milestone 1 & 2**: Phát hiện peer tự động qua UDP broadcast, trao đổi bản tin TCP có framing chuẩn |
-| **Tuần 2** | Ngày 8 – 14 | **P2P Chat đa luồng, File Transfer, Wireshark & Báo cáo** | Xây dựng TCP Acceptor đa luồng, Quản lý kết nối P2P trực tiếp giữa các bạn chat, Xử lý peer crash / disconnect | Phát triển tính năng /send file trên luồng riêng, Thanh tiến độ %, Tự lưu thư mục downloads/, Xử lý file lỗi | Hoàn thiện lệnh /chat, /leave, /status, Cơ chế Unread Notification, Bắt gói tin Wireshark, Viết báo cáo & Slide demo | **Milestone 3, 4, 5**: Chat & Gửi file song song không nghẽn, Báo cáo kỹ thuật + Wireshark + Video demo 2 máy |
+Toàn bộ mã nguồn đặt phẳng trong `src/` (**6 module Python**, không chia thư mục con lồng nhau) để dễ đọc chéo và sửa live-coding khi vấn đáp:
 
----
+```text
+                       ┌─────────────────────────────┐
+                       │   src/config.py (Chung)     │
+                       │ UDP_PORT=9999, 3.0s, 10.0s  │
+                       │ CHUNK_SIZE=65536, 4096B     │
+                       └──────────────┬──────────────┘
+                                      │ import hằng số
+          ┌───────────────────────────┼───────────────────────────┐
+          ▼                           ▼                           ▼
+┌───────────────────┐     ┌───────────────────────┐     ┌───────────────────┐
+│ Nhánh: network-lead│    │Nhánh: transfer-protocol│    │ Nhánh: ui-client  │
+│  [TV1 - Mạng lõi] │     │ [TV2 - Giao thức/File]│     │ [TV3 - UI & CLI]  │
+│                   │     │                       │     │                   │
+│ • discovery.py    │◄────┤ • protocol.py         │     │ • main.py         │
+│ • chat_node.py    │     │ • file_transfer.py    │◄────┤   (khởi tạo App,  │
+└─────────┬─────────┘     └───────────┬───────────┘     │    PromptSession, │
+          │                           │                 │    8 lệnh CLI)    │
+          └─────────────┬─────────────┘                 └─────────┬─────────┘
+                        │  CHỈ truyền hàm Callback từ main.py     │
+                        └───────────────(on_ui_print,             │
+                                         on_incoming_file) ───────┘
+```
 
-## 2. SHEET THÀNH VIÊN 1 - CORE NETWORK LEAD
-
-> **Khu vực phụ trách**: `src/main.py`, `src/network/udp_discovery.py`, `src/core/peer_manager.py`, `src/network/tcp_server.py`.
-
-| Tuần | Deadline | Mục tiêu chung | Nhiệm vụ cụ thể | Done | File làm việc | Output bàn giao |
-| :---: | :---: | :--- | :--- | :---: | :--- | :--- |
-| **Tuần 1** | Ngày 2 | Khởi tạo kiến trúc | Thống nhất kiến trúc P2P, tạo khung thư mục src/core, src/network và cấu hình Git repo | `[x]` | `src/main.py, .gitignore` | Khung ứng dụng chạy được lệnh python main.py |
-| **Tuần 1** | Ngày 3 | Thiết lập Socket UDP | Viết socket UDP phát sóng presence beacon mỗi 3s (SO_BROADCAST, SO_REUSEADDR) trên cổng 9999 | `[ ]` | `src/network/udp_discovery.py` | Broadcast đều đặn HELLO\|name\|port\|status |
-| **Tuần 1** | Ngày 4 | Lắng nghe UDP Broadcast | Tạo luồng chạy ngầm nhận gói tin UDP từ các máy khác, phân tách thông tin peer | `[ ]` | `src/network/udp_discovery.py` | Nhận diện tức thì khi có peer mới xuất hiện trong LAN |
-| **Tuần 1** | Ngày 5 | Quản lý Online Peer List | Lưu trữ danh sách Online Peers (IP, port, status, last_seen), bảo vệ bằng threading.Lock | `[ ]` | `src/core/peer_manager.py` | Bộ nhớ lưu danh sách an toàn không bị Race Condition |
-| **Tuần 1** | Ngày 6 | Quét Timeout 10s | Tạo luồng timer quét định kỳ danh sách peer, xóa peer nào sau 10s không gửi heartbeat | `[ ]` | `src/core/peer_manager.py` | Tự động phát hiện và xóa peer offline khỏi danh sách |
-| **Tuần 1** | Ngày 7 | Nghiệm thu Tuần 1 | Kiểm tra chéo UDP Discovery trên 2 máy thật trong mạng LAN hoặc 2 terminal khác port | `[ ]` | `tests/test_discovery.py` | Hoàn tất 100% mục tiêu Milestone 1 & 2 |
-| **Tuần 2** | Ngày 8 | TCP Server Acceptor | Xây dựng luồng TCP Server lắng nghe cổng chat, chấp nhận kết nối P2P từ các peer khác | `[ ]` | `src/network/tcp_server.py` | Mỗi kết nối đến được spawn 1 receiver thread riêng |
-| **Tuần 2** | Ngày 10 | Quản lý đa kết nối P2P | Quản lý danh sách active socket kết nối với nhiều bạn chat cùng lúc, điều phối gửi tin | `[ ]` | `src/network/tcp_server.py` | Hỗ trợ kết nối đồng thời nhiều peer ổn định |
-| **Tuần 2** | Ngày 12 | Bảo vệ luồng & Peer Crash | Xử lý đóng socket an toàn khi peer ngắt mạng, peer tắt đột ngột, giải phóng tài nguyên | `[ ]` | `src/core/peer_manager.py` | Không bị crash ứng dụng khi peer đối phương disconnect |
-| **Tuần 2** | Ngày 14 | Tổng duyệt Demo & Kịch bản | Phối hợp chạy kịch bản kết nối 2 máy tính thật trong buổi bảo vệ trước giảng viên | `[ ]` | `docs/presentation/demo_guide.md` | Kịch bản demo trơn tru, chứng minh kết nối P2P |
-
----
-
-## 3. SHEET THÀNH VIÊN 2 - TRANSFER & PROTOCOL
-
-> **Khu vực phụ trách**: `src/network/protocol.py`, `src/network/tcp_handler.py`, `src/network/file_transfer.py`, `src/utils/error_handler.py`.
-
-| Tuần | Deadline | Mục tiêu chung | Nhiệm vụ cụ thể | Done | File làm việc | Output bàn giao |
-| :---: | :---: | :--- | :--- | :---: | :--- | :--- |
-| **Tuần 1** | Ngày 2 | Đặc tả định dạng bản tin | Thống nhất format gói tin UDP (HELLO) và TCP Header phân tách MSG, FILE, BYE | `[x]` | `src/network/protocol.py` | Tài liệu & module định nghĩa giao thức dùng chung |
-| **Tuần 1** | Ngày 3 | Đóng gói / bóc tách Header | Viết hàm pack_message, unpack_message bóc tách chính xác độ dài byte (framing) | `[ ]` | `src/network/protocol.py` | Không bị lỗi dính gói (sticky) hoặc phân mảnh TCP |
-| **Tuần 1** | Ngày 5 | TCP Stream Reader chuẩn | Viết hàm recv_exact(n_bytes) lặp recv() liên tục đến khi đủ độ dài quy định trong header | `[ ]` | `src/network/tcp_handler.py` | Đọc chính xác 100% dữ liệu không thừa không thiếu byte |
-| **Tuần 1** | Ngày 6 | Test TCP Echo có Framing | Viết kịch bản test gửi chuỗi dài có dấu tiếng Việt UTF-8 qua TCP socket có framing | `[ ]` | `tests/test_protocol.py` | Test pass 100% các trường hợp chuỗi dài, ký tự đặc biệt |
-| **Tuần 1** | Ngày 7 | Kiểm tra tải gói tin | Phối hợp test truyền nhận gói tin liên tục nhiều lần xem có bị nghẽn buffer không | `[ ]` | `tests/test_protocol.py` | Giao thức truyền nhận ổn định, sẵn sàng ghép nối |
-| **Tuần 2** | Ngày 9 | Luồng gửi file nhị phân | Phát triển hàm send_file chạy trên luồng riêng (non-blocking) qua lệnh /send <file> | `[ ]` | `src/network/file_transfer.py` | Gửi file mượt mà, không làm đơ hay giật lag luồng chat |
-| **Tuần 2** | Ngày 10 | Luồng nhận file & Lưu trữ | Đọc header FILE, đọc kích thước bytes và ghi trực tiếp vào thư mục downloads/<tên_file> | `[ ]` | `src/network/file_transfer.py, downloads/` | File nhận về đầy đủ, chính xác, không bị hỏng định dạng |
-| **Tuần 2** | Ngày 11 | Thanh tiến độ (Progress Bar) | Tính toán % dữ liệu đã truyền/nhận và phát tín hiệu cập nhật ra giao diện (VD: 45%... 100%) | `[ ]` | `src/network/file_transfer.py` | Hiển thị tiến độ truyền file theo thời gian thực |
-| **Tuần 2** | Ngày 12 | Xử lý file lỗi & Kiểm tra MD5 | Bắt lỗi file không tồn tại, mất mạng giữa chừng thì dọn file tạm; so sánh mã băm SHA256 | `[ ]` | `src/utils/error_handler.py` | Đảm bảo tính toàn vẹn dữ liệu, dọn rác sạch sẽ |
-| **Tuần 2** | Ngày 14 | Báo cáo phần Giao thức | Soạn nội dung mục 5 trong Báo cáo: Thiết kế Protocol Framing, phân tích Byte Stream TCP | `[ ]` | `docs/BAO_CAO_DO_AN.docx` | Hoàn thành 3 trang phân tích kỹ thuật tầng giao vận |
+> **Quy tắc chống import vòng (BẮT BUỘC):**
+> - Các module `src/discovery.py`, `src/chat_node.py`, `src/file_transfer.py` và `src/protocol.py` **TUYỆT ĐỐI KHÔNG** `import main`.
+> - `src/main.py` khởi tạo `PromptSession` + khóa in màn hình, rồi truyền hàm callback `on_ui_print(msg)` xuống `discovery.py`, `chat_node.py`, `file_transfer.py` và truyền hàm callback `on_incoming_file` (trỏ tới `receive_file`) xuống `chat_node.py`.
+> - Mọi dữ liệu dùng chung (`online_peers`, `active_chats`, `chat_history`, `unread_counts`) đều phải bọc trong `threading.Lock()`.
 
 ---
 
-## 4. SHEET THÀNH VIÊN 3 - INTERACTIVE UI & CLIENT LOGIC
+## 1. Tổng Quan Lộ Trình & Barem 100% Điểm
 
-> **Khu vực phụ trách**: `src/ui/cli_interface.py`, `src/ui/command_handler.py`, `src/core/message_store.py`, `docs/wireshark/`, `docs/presentation/`.
+### 1.1. Lộ trình 4 giai đoạn (23/11 – 12/12/2026)
 
-| Tuần | Deadline | Mục tiêu chung | Nhiệm vụ cụ thể | Done | File làm việc | Output bàn giao |
-| :---: | :---: | :--- | :--- | :---: | :--- | :--- |
-| **Tuần 1** | Ngày 2 | Khảo sát giao diện Console | Nghiên cứu option_a_prompt_toolkit.py và cấu hình patch_stdout() cho giao diện tương tác | `[x]` | `src/ui/cli_interface.py` | Môi trường console hỗ trợ async và in bất đồng bộ |
-| **Tuần 1** | Ngày 4 | Bộ điều phối lệnh CLI cơ bản | Viết parser bóc tách chuỗi người dùng gõ: xử lý /help (in trợ giúp), /list (xem online), /quit | `[ ]` | `src/ui/command_handler.py` | Hệ thống lệnh CLI hoạt động chính xác theo đề bài |
-| **Tuần 1** | Ngày 5 | Giao diện chống đè chữ khi gõ | Hoàn thiện cơ chế giữ nguyên dòng prompt > đang gõ dở khi có thông báo mạng đẩy về | `[ ]` | `src/ui/cli_interface.py` | Đạt 15% tiêu chí Barem giao diện không bị gián đoạn |
-| **Tuần 1** | Ngày 6 | Lệnh đổi trạng thái /status | Xử lý lệnh /status <online\|away>, cập nhật biến trạng thái để TV1 phát broadcast | `[ ]` | `src/ui/command_handler.py` | Đổi trạng thái hiển thị của bản thân ngay lập tức |
-| **Tuần 1** | Ngày 7 | Thẩm định giao diện Tuần 1 | Chạy thử nghiệm gõ phím liên tục trong khi mô phỏng tin nhắn dồn dập đổ về | `[ ]` | `src/ui/cli_interface.py` | Giao diện mượt mà, màu sắc đẹp mắt, không giật lag |
-| **Tuần 2** | Ngày 8 | Lệnh mở chat /chat & /leave | Xử lý lệnh /chat <name\|số> để kết nối tới peer, /leave để kết thúc phiên chat hiện tại | `[ ]` | `src/ui/command_handler.py` | Chuyển đổi linh hoạt giữa màn hình sảnh và phòng chat |
-| **Tuần 2** | Ngày 9 | Hộp thư chờ & Tin nhắn Unread | Khi đang chat với A mà B nhắn đến: lưu tin nhắn của B và hiện thông báo [*] New message (1 unread) | `[ ]` | `src/core/message_store.py` | Đạt 100% yêu cầu chuyển ngữ cảnh và đếm tin chưa đọc |
-| **Tuần 2** | Ngày 11 | Tích hợp thanh tiến độ gửi file | Ghép nối tín hiệu tiến độ % từ TV2 hiển thị lên màn hình console không làm đè chữ | `[ ]` | `src/ui/cli_interface.py` | Thanh progress bar hiện đẹp mắt trên console |
-| **Tuần 2** | Ngày 13 | Bắt gói tin Wireshark | Dùng Wireshark bắt gói UDP broadcast, bắt tay 3 bước TCP SYN-ACK và dòng dữ liệu chat/file | `[ ]` | `docs/wireshark/` | Bộ ảnh chụp màn hình Wireshark kèm chú thích chi tiết |
-| **Tuần 2** | Ngày 14 | Hoàn thiện Báo cáo & Slide | Chủ trì tổng hợp Báo cáo kỹ thuật (5-10 trang), thiết kế Slide bảo vệ và kịch bản thuyết trình | `[ ]` | `docs/BAO_CAO_DO_AN.docx, docs/slide.pptx` | Bộ hồ sơ nộp bài hoàn chỉnh, chỉn chu 100% |
+| Giai đoạn | Thời gian | Mục tiêu trọng tâm | Mốc nghiệm thu (Checkpoint) | Trạng thái |
+| :--- | :---: | :--- | :--- | :---: |
+| **Tuần 1: Nền tảng & UDP** | `23/11 – 29/11` | Chốt `src/config.py` + `src/protocol.py` (`24/11`), hoàn thiện UDP Discovery `3s`/`10s` (`src/discovery.py`), dựng TCP Acceptor (`src/chat_node.py`) và khung CLI `prompt_toolkit` (`src/main.py`). | **Tối 29/11 (Merge 1):** 3 terminal trên 1 máy tự thấy nhau qua UDP (`--bcast 127.255.255.255`), `/list`, `/status`, tắt 1 terminal sau `10s` tự biến mất, không vỡ chữ khi gõ. | `[ ]` |
+| **Tuần 2: Chat TCP & File** | `30/11 – 05/12` | Hoàn thiện TCP Chat 2 chiều + `INTRO` + hộp thư `unread` (`src/chat_node.py`), gửi/nhận file trên kết nối TCP riêng có `%` tiến độ + `SHA256` + dọn `.part` (`src/file_transfer.py`), đủ 8 lệnh CLI. | **Tối 05/12 (Merge 2 — Feature Freeze):** Chốt 100% code; vừa chat 2 chiều vừa gửi file lớn không nghẽn, chuyển phòng chat xem tin `unread` chính xác, chạy pass bộ `tests/`. | `[ ]` |
+| **Về đích: Test 2 máy & Báo cáo** | `06/12 – 08/12` | Test thực tế trên 2+ laptop cùng mạng LAN/Wi-Fi (mở Firewall, xử lý card ảo bằng `--bcast`), bắt gói Wireshark, hoàn thiện Báo cáo 5–10 trang + `README.md`. | **Tối 08/12 (HOÀN TẤT 100%):** Merge sạch lên `main`, đủ Code + `tests/` + ảnh Wireshark (`docs/wireshark/`) + Báo cáo & Slide (`docs/presentation/`). | `[ ]` |
+| **Đệm Tự Check & Vấn đáp** | `09/12 – 12/12` | Tải zip sạch test lại trên máy mới, đọc chéo code cả 6 file giữa 3 người, diễn tập demo 10 phút và luyện 5 tình huống live-coding. | **12/12 Nộp bài đúng hạn:** Sẵn sàng demo 2+ máy và trả lời vấn đáp / live-coding tự tin. | `[ ]` |
+
+### 1.2. Barem chấm điểm đề bài (100%)
+
+| STT | Tiêu chí chấm điểm | Trọng số | Phụ trách | Module / Thư mục | Yêu cầu đạt điểm tối đa |
+| :-: | :--- | :-: | :--- | :--- | :--- |
+| 1 | **UDP Discovery, Online List, Status** | **15%** | TV1 | `src/discovery.py` | Broadcast mỗi `3s` (UDP `9999`, `SO_REUSEADDR`/`SO_BROADCAST`), timeout `10s` tự xóa, `/status online\|away`, lọc self-beacon bằng `peer_id`. |
+| 2 | **TCP Chat (gửi/nhận mọi lúc, đa peer)** | **20%** | TV1 + TV3 | `src/chat_node.py` | Gửi/nhận 2 chiều bất đồng bộ, tái sử dụng kết nối qua `INTRO`, lưu hộp thư chờ & báo `[*] New message from X (N unread)`. |
+| 3 | **File Transfer có `%` tiến độ, lưu đúng** | **15%** | TV2 | `src/file_transfer.py` | Mở **kết nối TCP riêng** trên thread riêng, đọc/ghi chunk `64KB` vào `downloads/`, báo mốc `25/50/75/100%`, kiểm tra `SHA256`. |
+| 4 | **Console UI không vỡ chữ khi đang gõ** | **15%** | TV3 | `src/main.py` | `PromptSession` + `patch_stdout()` + `threading.Lock()` bảo vệ màn hình khi tin nhắn/tiến độ file đẩy về lúc đang gõ. |
+| 5 | **Thiết kế Giao thức & Message Framing** | **10%** | TV2 | `src/protocol.py` | Header kết thúc bằng `\n` (`recv_line`) + đọc thân bằng `recv_exact(sock, n)`, chống dính gói/cắt mảnh TCP, hỗ trợ tiếng Việt UTF-8 & `\|`. |
+| 6 | **Xử lý lỗi & Độ ổn định** | **10%** | Cả nhóm (TV2 chủ trì) | Toàn bộ `src/` | Peer tắt đột ngột không sập app, peer offline báo lỗi gọn, đứt mạng tự xóa `.part`, `os.path.basename` chống `../`, xử lý file `0 byte`. |
+| 7 | **Báo cáo kỹ thuật (5–10 trang) + Wireshark** | **10%** | TV3 tổng hợp + Cả nhóm | `docs/` | Kiến trúc, mô hình 6 luồng, định dạng gói tin, lỗi & hướng xử lý, ảnh Wireshark UDP Broadcast `9999` & TCP 3-way Handshake. |
+| 8 | **Demo trực tiếp (2+ máy) & Chất lượng Code** | **5%** | Cả 3 thành viên | Nhánh `main` | Demo 10 phút trên 2+ máy thật, code 6 file phẳng sạch đẹp, hiểu chéo code và live-coding nhanh. |
+| | **Tổng cộng** | **100%** | | | |
+
+---
+
+## 2. Thành Viên 1 — Core Network Lead (`network-lead`)
+
+> **Phạm vi file:** `src/discovery.py`, `src/chat_node.py`, phối hợp `src/config.py` và `tests/test_discovery.py`.
+
+| Tuần (Ngày) | File & Nhánh Git | Tên nhiệm vụ cụ thể | Hướng dẫn thực hiện chi tiết | Mục đích & Điểm Barem | Done |
+| :--- | :--- | :--- | :--- | :--- | :---: |
+| **Tuần 1**<br>(`23/11 – 24/11`) | `src/config.py`<br>`src/discovery.py`<br>*(nhánh `network-lead`)* | Chốt hằng số & khởi tạo UDP Socket hỗ trợ đa môi trường | Phối hợp TV2 tạo `src/config.py` (`UDP_PORT = 9999`, `BROADCAST_INTERVAL = 3.0`, `PEER_TIMEOUT = 10.0`). Trong `DiscoveryService.__init__()`, sinh `peer_id = uuid.uuid4().hex[:8]`, nhận `bcast_addr` (mặc định `"255.255.255.255"`), `on_ui_print`. Tạo hàm `_create_udp_socket()` bật `SO_REUSEADDR`, kiểm tra `if hasattr(socket, "SO_REUSEPORT"): sock.setsockopt(...)`, bật `SO_BROADCAST`, rồi `sock.bind(("", UDP_PORT))`. | Cho phép chạy nhiều terminal trên cùng 1 máy và vượt qua card mạng ảo WSL/VMware bằng `--bcast`.<br>**(Nền tảng 15% UDP)** | `[ ]` |
+| **Tuần 1**<br>(`25/11 – 26/11`) | `src/discovery.py`<br>*(nhánh `network-lead`)* | Viết 2 luồng UDP Broadcaster (`3s`) & UDP Listener + Cleaner (`10s`) | 1) `_broadcaster_loop()`: mỗi `BROADCAST_INTERVAL` (`3.0s`) đóng gói `pack_hello(peer_id, name, tcp_port, status)` gửi tới `(bcast_addr, UDP_PORT)`; tạo thêm `broadcast_now()` dùng `threading.Event` để phát ngay khi đổi `/status`.<br>2) `_listener_loop()`: gọi `recvfrom(4096)`, giải mã `unpack_hello()`, bỏ qua nếu `sender_peer_id == self.peer_id` (**tuyệt đối không lọc theo `name`**).<br>3) Cập nhật `self.online_peers[peer_id]` dưới `self._lock`: chỉ gọi `on_ui_print` khi peer mới online hoặc đổi `status` (không spam log mỗi `3s`).<br>4) `_cleaner_loop()`: mỗi `1s` quét `online_peers` xóa peer có `time.time() - last_seen > PEER_TIMEOUT` (`10.0s`) và báo offline. | Hoàn thiện cơ chế phát hiện peer tự động, an toàn đa luồng không Race Condition.<br>**(15% Barem UDP Discovery)** | `[ ]` |
+| **Tuần 1**<br>(`27/11 – 28/11`) | `src/chat_node.py`<br>*(nhánh `network-lead`)* | Dựng `ChatNode` & luồng `TCP Acceptor` phân loại `INTRO` vs `FILE` | Tạo class `ChatNode(peer_id, name, tcp_port, on_ui_print, on_incoming_file)`. Mở `server_sock` (`AF_INET`, `SOCK_STREAM`, `SO_REUSEADDR`), `bind(("", tcp_port))`, `listen(16)`. Viết `_accept_loop()` nhận `(conn, addr)` và spawn daemon thread `_handle_connection(conn, addr)`. Trong `_handle_connection()`, gọi `recv_line(conn, MAX_HEADER_BYTES)` đọc dòng đầu: nếu bắt đầu bằng `INTRO\|` thì đăng ký vào `self.active_chats[peer_id] = conn` (dưới `self._lock`); nếu bắt đầu bằng `FILE\|` thì chuyển thẳng `(conn, first_line)` cho callback `on_incoming_file` xử lý và return. | Tách bạch luồng Chat và luồng File ngay từ dòng header đầu tiên trên cùng 1 cổng TCP lắng nghe.<br>**(Nền tảng 20% TCP Chat)** | `[ ]` |
+| **Tuần 1**<br>(`29/11 CN`) | `src/discovery.py`<br>`tests/test_discovery.py`<br>*(Merge 1)* | Hợp nhất Tuần 1 & kiểm thử UDP Discovery trên 3 terminal | Phối hợp TV3 ghép `discovery.py` vào `main.py`, test mở 3 terminal `--port 5001, 5002, 5003 --bcast 127.255.255.255`, kiểm tra cả trường hợp 2 terminal đặt trùng `--name` vẫn thấy nhau nhờ khác `peer_id`. Viết unit test trong `tests/test_discovery.py` (lọc `peer_id`, cập nhật status, tự xóa sau timeout). | Đạt Milestone 1 & 2, chốt ổn định toàn bộ tầng UDP trước khi sang Tuần 2.<br>**(Milestone 1 & 2)** | `[ ]` |
+| **Tuần 2**<br>(`30/11 – 01/12`) | `src/chat_node.py`<br>*(nhánh `network-lead`)* | Xử lý kết nối chủ động `/chat` & tái sử dụng socket hai chiều | Viết `open_chat(peer_info)`: kiểm tra `peer_info["peer_id"]` dưới `self._lock`. Nếu đã có socket trong `active_chats` thì **tái sử dụng luôn** (không mở kết nối thứ 2 gây chồng chéo); nếu chưa có thì `sock.connect((ip, tcp_port))`, gửi ngay `INTRO|<my_id>|<my_name>|<my_port>\n`, lưu vào `active_chats` và spawn `_chat_receiver_loop(peer_id, sock)`. Viết `send_message(text)` đóng gói `pack_msg(text)` gửi qua socket của `current_chat_peer_id`. | Tránh lỗi mở 2 kết nối song song giữa 2 máy và giải quyết lỗi ephemeral port khi kết nối trên `127.0.0.1`.<br>**(20% Barem TCP Chat)** | `[ ]` |
+| **Tuần 2**<br>(`02/12 – 03/12`) | `src/chat_node.py`<br>*(nhánh `network-lead`)* | Định tuyến tin nhắn đa peer & hộp thư `unread_messages` | Trong `_chat_receiver_loop(peer_id, sock)`: đọc header qua `recv_line()`, nếu là `MSG\|<byte_len>` thì gọi `recv_exact(sock, byte_len)` giải mã UTF-8. Dưới `self._lock`: nếu `peer_id == self.current_chat_peer_id` thì gọi `on_ui_print(f"[{peer_name}] {msg}")`; ngược lại append vào `self.unread_messages[peer_id]`, tăng `self.unread_counts[peer_id]` và báo `[*] New message from {peer_name} ({count} unread)`. Khi gọi `open_chat()` hoặc `pop_unread(peer_id)`, lấy toàn bộ tin chưa đọc ra hiển thị và reset bộ đếm về `0`. | Đạt trọn vẹn yêu cầu nhắn tin đa peer bất đồng bộ và thông báo số tin chưa đọc.<br>**(20% Barem TCP Chat)** | `[ ]` |
+| **Tuần 2**<br>(`04/12`) | `src/chat_node.py`<br>*(nhánh `network-lead`)* | Xử lý `BYE\n`, `leave_current_chat()` & chống crash khi peer sập | Viết `leave_current_chat()`: nếu đang chat với `peer_id`, gửi `BYE\n` qua socket, đóng socket sạch sẽ, xóa khỏi `active_chats`, đặt `current_chat_peer_id = None`. Trong `_chat_receiver_loop()`: khi nhận `BYE\n`, hoặc `recv_line()` trả `None`, hoặc bắt `(ConnectionResetError, BrokenPipeError, OSError)` -> xóa `peer_id` khỏi `active_chats`, nếu đang là bạn chat hiện tại thì đặt `current_chat_peer_id = None` và báo quay về sảnh chính. Viết `shutdown()` gửi `BYE\n` tới tất cả `active_chats` và đóng `server_sock`. | Đảm bảo đối phương `Ctrl+C` hoặc rớt mạng không bao giờ làm crash tiến trình.<br>**(10% Barem Error Handling)** | `[ ]` |
+| **Tuần 2**<br>(`05/12 T7`) | `src/chat_node.py`<br>*(Merge 2 — Feature Freeze)* | Ghép nối Chat + File + UI & khóa tính năng trên `main` | Hợp nhất 3 nhánh `network-lead`, `transfer-protocol`, `ui-client`. Kiểm tra luồng nhận `FILE\|...` từ `_handle_connection()` truyền sang `file_transfer.receive_file()` chạy mượt song song khi đang chat. | Đóng băng tính năng code đúng hạn, sẵn sàng test thực tế.<br>**(Milestone 3 & 4)** | `[ ]` |
+| **Về đích**<br>(`06/12 – 08/12`) | `src/`<br>`docs/wireshark/`<br>*(nhánh `main`)* | Test 2+ laptop LAN/Wi-Fi, mở Firewall & chụp Wireshark | Chạy thực tế trên 2+ laptop: mở Windows Defender Firewall cho Python, dùng `--bcast <subnet_broadcast>` nếu máy có WSL/VMware. Phối hợp TV3 chụp Wireshark gói UDP Broadcast `9999` và TCP 3-Way Handshake (`SYN`, `SYN-ACK`, `ACK`) + viết phần Kiến trúc & 6 luồng trong báo cáo. | Chứng minh chạy thật trên LAN và hoàn tất tài liệu đúng hạn `08/12`.<br>**(10% Báo cáo + 5% Demo)** | `[ ]` |
+
+---
+
+## 3. Thành Viên 2 — Protocol & File Transfer (`transfer-protocol`)
+
+> **Phạm vi file:** `src/config.py`, `src/protocol.py`, `src/file_transfer.py`, `tests/test_protocol.py`, `tests/test_file_transfer.py`.
+
+| Tuần (Ngày) | File & Nhánh Git | Tên nhiệm vụ cụ thể | Hướng dẫn thực hiện chi tiết | Mục đích & Điểm Barem | Done |
+| :--- | :--- | :--- | :--- | :--- | :---: |
+| **Tuần 1**<br>(`23/11 – 24/11`) | `src/config.py`<br>`src/protocol.py`<br>*(nhánh `transfer-protocol`)* | Chốt hằng số `config.py` & viết bộ đọc TCP an toàn `recv_line` / `recv_exact` | Tạo `src/config.py` chứa: `UDP_PORT = 9999`, `BROADCAST_INTERVAL = 3.0`, `PEER_TIMEOUT = 10.0`, `CHUNK_SIZE = 65536`, `MAX_HEADER_BYTES = 4096`, `DOWNLOAD_DIR = "downloads"`.<br>Trong `src/protocol.py`, viết:<br>- `recv_exact(sock, n_bytes) -> bytes`: lặp `sock.recv(n_bytes - len(buf))` tới khi đủ `n_bytes`; nếu `chunk == b""` raise `ConnectionError("EOF")` (hoặc `EOFError`).<br>- `recv_line(sock, max_bytes=MAX_HEADER_BYTES) -> str \| None`: đọc từng byte tới khi gặp `\n` (vượt `max_bytes` thì raise `ValueError`), trả về chuỗi UTF-8 đã bỏ `\r\n` (trả `None` nếu đóng kết nối sạch trước khi đọc byte nào). | Giải quyết triệt để lỗi TCP dính gói (coalescing) và cắt mảnh (fragmentation).<br>**(10% Barem Protocol & Framing)** | `[ ]` |
+| **Tuần 1**<br>(`25/11 – 26/11`) | `src/protocol.py`<br>*(nhánh `transfer-protocol`)* | Hoàn thiện đóng gói/bóc tách UDP `HELLO` & các Header TCP | Viết các hàm chuẩn hóa:<br>- UDP: `pack_hello(peer_id, name, tcp_port, status)` -> `HELLO\|<peer_id>\|<name>\|<tcp_port>\|<status>` và `unpack_hello(data: bytes)` kiểm tra đủ 5 trường, `tcp_port` hợp lệ `1..65535`.<br>- TCP: `pack_intro(peer_id, name, tcp_port)` -> `INTRO\|...\\n`, `pack_msg(text)` -> `f"MSG\|{len(raw)}\\n".encode() + raw`, `pack_bye()` -> `b"BYE\n"`, `pack_file_header(sender_name, safe_filename, file_size, sha256)` -> `FILE\|...\\n`, `pack_file_ok()` -> `b"FILE_OK\n"`, `pack_file_err(reason)` -> `FILE_ERR\|<reason>\n`. Dùng `split("\|", 4)` đúng số trường để không lỗi tên/lý do. | Đảm bảo mọi chuỗi UTF-8 tiếng Việt, ký tự `\|`, xuống dòng trong nội dung chat không làm vỡ Header.<br>**(10% Barem Protocol & Framing)** | `[ ]` |
+| **Tuần 1**<br>(`27/11 – 28/11`) | `tests/test_protocol.py`<br>*(nhánh `transfer-protocol`)* | Viết Unit Test kiểm thử TCP Framing toàn diện | Dùng `socket.socketpair()` (hoặc loopback TCP server/client) kiểm thử: (1) 2 gói `MSG` gửi dính liền nhau trong 1 lần `sendall`, (2) gói `MSG` bị cắt nhỏ và gửi từng `1 byte` một, (3) nội dung chứa tiếng Việt UTF-8, emoji và nhiều dấu `\|`, (4) `recv_line` vượt quá `4096 bytes` phải chặn được, (5) `pack_hello` / `unpack_hello` sai định dạng không làm crash. | Kiểm chứng `protocol.py` đạt độ tin cậy 100% trước khi TV1 & TV3 ghép nối.<br>**(Milestone 1 & 2)** | `[ ]` |
+| **Tuần 1**<br>(`29/11 CN`) | `src/protocol.py`<br>*(Merge 1)* | Họp nhóm Review `protocol.py` & chốt chữ ký callback truyền file | Cùng TV1 và TV3 thống nhất chữ ký hàm `send_file(peer_ip, peer_tcp_port, sender_name, file_path, on_ui_print)` và `receive_file(conn, header_line, on_ui_print)` để TV1 gắn thẳng vào `chat_node.py` ở Tuần 2. | Thống nhất giao diện module (interface contract) giữa 3 thành viên.<br>**(Merge Tuần 1)** | `[ ]` |
+| **Tuần 2**<br>(`30/11 – 01/12`) | `src/file_transfer.py`<br>*(nhánh `transfer-protocol`)* | Viết luồng gửi file `send_file()` trên kết nối TCP riêng biệt | 1) Kiểm tra `os.path.isfile(file_path)` (nếu không tồn tại báo lỗi gọn và return).<br>2) Tính `file_size = os.path.getsize(file_path)` và tính mã băm `SHA256` bằng cách đọc theo chunk `64KB` (`CHUNK_SIZE`).<br>3) Spawn thread riêng (hoặc gọi từ thread `File Sender`): mở **một socket TCP mới** `connect((peer_ip, peer_tcp_port))` (không dùng socket chat!).<br>4) Gửi `FILE\|<sender_name>\|<safe_name>\|<file_size>\|<sha256>\n`, sau đó đọc file từng `64KB` gửi qua `sendall()` (không load cả file vào RAM).<br>5) Chỉ in tiến độ tại các mốc `25%`, `50%`, `75%`, `100%` (nếu `file_size == 0` gửi 0 byte và báo `100%` ngay).<br>6) Chờ đọc phản hồi `FILE_OK\n` hoặc `FILE_ERR\|...` từ bên nhận rồi đóng socket. | Gửi file nặng mượt mà, không bao giờ làm đơ hay xen ngang dữ liệu luồng Chat.<br>**(15% Barem File Transfer)** | `[ ]` |
+| **Tuần 2**<br>(`02/12 – 03/12`) | `src/file_transfer.py`<br>*(nhánh `transfer-protocol`)* | Viết luồng nhận file `receive_file()` an toàn Path Traversal & chống trùng tên | 1) Parse `header_line` lấy `sender_name, raw_name, file_size_str, expected_sha256`.<br>2) Viết helper `_sanitize_filename(raw_name)`: lấy `os.path.basename()`, thay thế ký tự cấm (`<>:"/\\|?*`, ký tự điều khiển) bằng `_`, chặn tên rỗng/`.`/`..`.<br>3) Tạo `downloads/` nếu chưa có; viết `_resolve_unique_path()` nếu file đích đã tồn tại thì tự đổi thành `ten_(1).ext`, `ten_(2).ext`...<br>4) Ghi vào file tạm `<dest_path>.part` theo từng khối `min(CHUNK_SIZE, remaining)` (nếu `file_size == 0` tạo file rỗng). Chỉ báo tiến độ tại các mốc `25%`, `50%`, `75%`, `100%`. | Bảo vệ máy người nhận khỏi ghi đè file hệ thống (`../`) và không làm trôi màn hình chat.<br>**(15% File Transfer + 10% Error Handling)** | `[ ]` |
+| **Tuần 2**<br>(`04/12`) | `src/file_transfer.py`<br>*(nhánh `transfer-protocol`)* | Xác thực `SHA256`, gửi `FILE_OK`/`FILE_ERR` & dọn sạch `.part` trong `finally` | Trong `receive_file()`: vừa nhận chunk vừa cập nhật `hashlib.sha256()`. Khi đủ `file_size` byte: so sánh `actual_sha256 == expected_sha256`. Nếu khớp -> đóng file tạm, `os.replace(part_path, final_path)`, gửi `FILE_OK\n`, báo người dùng đã lưu vào `downloads/<tên>`. Nếu sai hash hoặc đứt mạng giữa chừng -> gửi `FILE_ERR\|<reason>\n` (nếu socket còn mở). Đặt khối `finally:` kiểm tra nếu `part_path` còn tồn tại thì `os.remove(part_path)` và đóng `conn`. | Đảm bảo toàn vẹn file 100% và tuyệt đối không để rác `.part` khi lỗi.<br>**(10% Barem Error Handling)** | `[ ]` |
+| **Tuần 2**<br>(`05/12 T7`) | `tests/test_file_transfer.py`<br>*(Merge 2 — Feature Freeze)* | Viết Unit Test kiểm thử toàn bộ ca biên truyền file | Viết test tự động trong `tests/test_file_transfer.py`: (1) file `0 byte` (không lỗi `ZeroDivisionError`), (2) file nhị phân lớn vài MB khớp `SHA256`, (3) gửi 2 lần cùng tên file tự tạo `_(1)`, (4) tên file chứa `../../evil.txt` chỉ lưu thành `downloads/evil.txt`, (5) ngắt socket giữa chừng -> file `.part` tự bị xóa sạch. | Khẳng định độ ổn định trước khi thử nghiệm liên máy.<br>**(Milestone 4 & 5)** | `[ ]` |
+| **Về đích**<br>(`06/12 – 08/12`) | `docs/presentation/`<br>`downloads/`<br>*(nhánh `main`)* | Stress test ca lỗi, dọn file test trong `downloads/` & viết mục Giao thức trong Báo cáo | Test thực tế gửi file `5–50MB` giữa 2 laptop trong lúc chat liên tục; rút mạng/tắt terminal giữa chừng kiểm tra `.part` được xóa. Viết phần Thiết kế Giao thức, TCP Framing, SHA256 & Xử lý lỗi trong Báo cáo. Xóa sạch file test rác trong `downloads/` (chỉ giữ `.gitkeep`) trước khi chốt `08/12`. | Hoàn tất 100% phần Giao thức & File Transfer.<br>**(10% Báo cáo + 10% Error Handling)** | `[ ]` |
+
+---
+
+## 4. Thành Viên 3 — Console UI, CLI & Báo Cáo (`ui-client`)
+
+> **Phạm vi file:** `src/main.py`, `requirements.txt`, `README.md`, `docs/wireshark/`, `docs/presentation/`, phối hợp `tests/test_discovery.py`.
+
+| Tuần (Ngày) | File & Nhánh Git | Tên nhiệm vụ cụ thể | Hướng dẫn thực hiện chi tiết | Mục đích & Điểm Barem | Done |
+| :--- | :--- | :--- | :--- | :--- | :---: |
+| **Tuần 1**<br>(`23/11 – 24/11`) | `src/main.py`<br>`requirements.txt`<br>*(nhánh `ui-client`)* | Khởi tạo CLI `argparse`, kiểm tra `--name` & khung `PromptSession` chống vỡ chữ | Kiểm tra `requirements.txt` chỉ cần `prompt_toolkit`. Trong `src/main.py`, dùng `argparse` nhận `--name` (bắt buộc), `--port` (mặc định `5000`), `--bcast` (mặc định `"255.255.255.255"`). Kiểm tra validate `--name`: cấm rỗng, **cấm ký tự `\|` và xuống dòng `\n`, `\r`** để không làm hỏng gói `HELLO`/`INTRO`. Khởi tạo `session = PromptSession()`, viết hàm `ui_print(msg)` bọc trong `ui_lock = threading.Lock()` bên trong context `with patch_stdout():`. | Đáp ứng đúng chuẩn tham số dòng lệnh và giữ nguyên dòng `> ` đang gõ dở khi luồng nền in thông báo.<br>**(15% Barem Console UI)** | `[ ]` |
+| **Tuần 1**<br>(`25/11 – 26/11`) | `src/main.py`<br>*(nhánh `ui-client`)* | Cài đặt bộ phân tách lệnh `/help`, `/list`, `/status`, `/quit` & báo lỗi lệnh sai | Viết hàm `handle_command(raw_line)` xử lý:<br>- `/help`: in bảng 8 lệnh ngắn gọn.<br>- `/list`: gọi `discovery.get_online_peers()` + `chat_node.get_unread_counts()` in danh sách đánh số `1, 2, 3...` kèm `name`, `IP:tcp_port`, `status` (`online`/`away`) và `(N unread)` nếu có.<br>- `/status <online\|away>`: validate chỉ nhận `online` hoặc `away`, cập nhật vào `discovery.set_status()` và gọi `discovery.broadcast_now()`.<br>- Bất kỳ lệnh bắt đầu bằng `/` không hợp lệ -> in thông báo lỗi gọn + gợi ý gõ `/help`. | Hoàn chỉnh nhóm lệnh hệ thống và trạng thái hiển thị người dùng.<br>**(15% UI + 15% UDP Status)** | `[ ]` |
+| **Tuần 1**<br>(`27/11 – 28/11`) | `src/main.py`<br>*(nhánh `ui-client`)* | Hoàn thiện dấu nhắc động & test chống đè chữ khi thông báo đổ về dồn dập | Thiết kế prompt động: ở sảnh chờ hiện `> `, khi đang chat với `Minh` hiện `[Chat: Minh] > ` (hoặc `> ` tùy cấu hình thống nhất với đề bài). Viết script giả lập nhỏ hoặc test gõ phím liên tục trong lúc một thread nền gọi `ui_print()` 10 lần/giây để chắc chắn chữ đang gõ không bị cắt đứt hay nhảy dòng. | Đảm bảo trải nghiệm Console UI mượt mà không giật lag trên Windows/Linux/macOS.<br>**(15% Barem Console UI)** | `[ ]` |
+| **Tuần 1**<br>(`29/11 CN`) | `src/main.py`<br>*(Merge 1)* | Hợp nhất Tuần 1 với TV1 & TV2: chạy thử 3 terminal discovery + `/list` + `/status` | Khởi tạo `DiscoveryService` trong `main()`, truyền `on_ui_print=ui_print` xuống và test mở 3 cửa sổ Terminal chạy song song. Kiểm tra thông báo `[Peer online]` / `[Peer offline]` / đổi trạng thái hiển thị gọn gàng không làm hỏng dòng nhập lệnh. | Chạy thông suốt Milestone 1 & 2 trên giao diện thật.<br>**(Merge Tuần 1)** | `[ ]` |
+| **Tuần 2**<br>(`30/11 – 01/12`) | `src/main.py`<br>*(nhánh `ui-client`)* | Cài đặt lệnh `/chat <name\|number>`, `<text>` & `/leave` | - `/chat <target>`: nếu `target.isdigit()` -> ánh xạ theo số thứ tự từ danh sách `/list` hiện tại; ngược lại tìm theo `name` (nếu trùng tên cảnh báo hoặc chọn theo số thứ tự). Gọi `chat_node.open_chat(peer)`, nhận về danh sách tin `unread` và in ra toàn bộ kèm thông báo `[*] Switched to <name> — N unread:`.<br>- `<text>` (không bắt đầu bằng `/`): nếu chưa vào phòng chat -> nhắc `[*] Not in a chat. Use /chat <name\|number>`; nếu đang chat -> gọi `chat_node.send_message(text)` và in `[<my_name>] <text>`.<br>- `/leave`: gọi `chat_node.leave_current_chat()`, báo rời phòng chat về sảnh chính. | Hoàn thiện luồng chuyển đổi phòng chat và hiển thị tin nhắn chưa đọc.<br>**(20% Barem TCP Chat)** | `[ ]` |
+| **Tuần 2**<br>(`02/12 – 03/12`) | `src/main.py`<br>*(nhánh `ui-client`)* | Cài đặt lệnh `/send <file>`, dọn `.part` khi `/quit` hoặc `Ctrl+C` | - `/send <file_path>`: kiểm tra đang trong phòng chat với `peer`, tách đường dẫn (hỗ trợ bỏ dấu ngoặc kép `"..."` nếu người dùng kéo thả file vào terminal), khởi tạo thread daemon gọi `file_transfer.send_file(peer_ip, peer_tcp_port, my_name, file_path, ui_print)`.<br>- Khi `/quit` hoặc bắt `KeyboardInterrupt` / `EOFError`: thoát vòng lặp `main()`, vào khối `finally` gọi `discovery.stop()`, `chat_node.shutdown()`, và quét xóa các file `*.part` dở dang trong `downloads/`. | Đảm bảo vừa gửi file vừa gõ chat bình thường và thoát chương trình sạch tuyệt đối.<br>**(15% File + 10% Error Handling)** | `[ ]` |
+| **Tuần 2**<br>(`04/12 – 05/12`) | `src/main.py`<br>*(Merge 2 — Feature Freeze)* | Kiểm thử kịch bản 3 người hoàn chỉnh & rà soát nhất quán thông báo UI | Test kịch bản chuẩn đề bài: A đang chat với B, C nhắn 2 tin cho A (`[*] New message from C (2 unread)`), A gõ `/send` gửi file cho B, sau đó `/chat C` đọc đủ 2 tin chưa đọc, C tắt đột ngột (`Ctrl+C`) -> A không sập app. Thống nhất format thông báo `[ * ]` giống nhau ở cả 3 nhánh. | Khóa toàn bộ mã nguồn đúng mốc Feature Freeze `05/12`.<br>**(Milestone 4 & 5)** | `[ ]` |
+| **Về đích**<br>(`06/12 – 07/12`) | `docs/wireshark/`<br>`docs/presentation/`<br>`README.md` | Bắt gói Wireshark & viết Báo cáo kỹ thuật (5–10 trang) + Slide | 1) Mở Wireshark trên giao diện Wi-Fi/Loopback: lọc `udp.port == 9999` chụp gói `HELLO\|...` broadcast; lọc `tcp.port == 5000` (hoặc `5001`) chụp đủ 3 bước bắt tay `SYN -> SYN, ACK -> ACK` và payload `INTRO`/`MSG`/`FILE`. Lưu ảnh rõ nét vào `docs/wireshark/`.<br>2) Tổng hợp báo cáo `5–10 trang` (Tổng quan, Kiến trúc 6 file, Mô hình 6 luồng, Giao thức Framing, Ảnh Wireshark có chú thích, Lỗi gặp phải & Giải pháp) + Slide thuyết trình lưu vào `docs/presentation/`.<br>3) Rà soát lại `README.md` khớp 100% lệnh chạy thực tế. | Hoàn thiện phần hồ sơ chiếm 10% điểm báo cáo và hỗ trợ phần demo 5%.<br>**(10% Barem Báo cáo + Wireshark)** | `[ ]` |
+| **Về đích**<br>(`08/12 T3`) | Nhánh `main` & `docs/` | Nghiệm thu tổng thể trước 4 ngày đệm tự check | Chạy `python -m unittest discover -s tests -v`, kiểm tra `git status` sạch sẽ không chứa file rác, merge toàn bộ lên nhánh `main` đúng tối `08/12`. | Hoàn tất 100% đồ án trước thời hạn tự kiểm tra.<br>**(Chốt 08/12)** | `[ ]` |
+
+---
+
+## 5. Giai Đoạn Đệm Tự Check (`09/12 – 12/12`) & 5 Tình Huống Live-Coding Vấn Đáp
+
+### 5.1. Lịch tự check & luyện vấn đáp 4 ngày (`09/12 – 12/12`)
+
+| Ngày | Hoạt động của cả nhóm (3 thành viên) | Mục tiêu kiểm chứng | Trạng thái |
+| :---: | :--- | :--- | :---: |
+| **09/12 (T4)** | Tải bản nén sạch từ nhánh `main` về 2 máy mới, chạy `pip install -r requirements.txt`, chạy `python -m unittest discover -s tests -v` và test tay toàn bộ 8 lệnh CLI. | Bảo đảm không thiếu thư viện, không phụ thuộc file cục bộ, chạy sạch trên máy mới. | `[ ]` |
+| **10/12 (T5)** | Đọc chéo toàn bộ 6 file trong `src/`: TV1 giải thích `discovery.py` + `chat_node.py`; TV2 giải thích `protocol.py` + `file_transfer.py`; TV3 giải thích `main.py` + callback + `prompt_toolkit`. Rà soát lại Báo cáo & Wireshark. | Cả 3 thành viên hiểu 100% mã nguồn của nhau, không bị "đứng hình" khi thầy hỏi chéo module. | `[ ]` |
+| **11/12 (T6)** | Diễn tập Demo 10 phút trên 2+ laptop thật (có mở sẵn `python src/main.py` và Wireshark), bấm giờ 5 phút luyện 5 tình huống live-coding bên dưới; quay 1 video dự phòng. | Demo mượt dưới 10 phút, sửa live-coding trong 1–3 phút. | `[ ]` |
+| **12/12 (T7)** | **DEADLINE NỘP BÀI:** Kiểm tra lần cuối gói nộp (Source `src/`, `tests/`, `README.md`, `requirements.txt`, `docs/presentation/`, `docs/wireshark/`) và nộp đúng hạn. | Nộp bài trọn vẹn, sẵn sàng bảo vệ. | `[ ]` |
+
+### 5.2. Sổ tay 5 tình huống Live-Coding thầy dễ yêu cầu khi vấn đáp
+
+| STT | Tình huống thầy yêu cầu | File cần mở sửa | Cách xử lý chuẩn kỹ thuật (ngắn gọn, an toàn) | Đã tập? |
+| :-: | :--- | :--- | :--- | :---: |
+| 1 | **Gõ chữ `"bye"` thì tự động thoát phiên chat (hoặc thoát hẳn chương trình) cả 2 bên** | `src/main.py`<br>`src/chat_node.py` | **1) Ở bộ đọc input trong `src/main.py`:** ngay trước nhánh gửi tin nhắn chat, kiểm tra `if text.strip().lower() == "bye":`<br>- Nếu muốn thoát **phiên chat hiện tại** (giống `/leave`): gọi `chat_node.leave_current_chat()` (hàm này tự gửi `BYE\n` sang đối phương, đóng socket chat và đưa người dùng về sảnh chính).<br>- Nếu thầy yêu cầu thoát **hẳn chương trình**: gọi `chat_node.leave_current_chat()` rồi `break` khỏi vòng lặp `main()` để chạy xuống khối `finally` dọn dẹp sạch sẽ (**tuyệt đối không gọi `sys.exit()` bên trong luồng phụ `TCP receiver`** vì `sys.exit()` chỉ ném `SystemExit` trong thread đó chứ không tắt cả chương trình và làm kẹt socket).<br>**2) Ở `TCP receiver` trong `src/chat_node.py`:** đã xử lý sẵn khi nhận `BYE\n` -> in thông báo đối phương rời chat, đóng socket phiên đó và quay về prompt chính không sập app. | `[ ]` |
+| 2 | **Đổi chu kỳ phát UDP từ `3s` thành `5s`, hoặc đổi timeout từ `10s` thành `15s`** | `src/config.py` | Mở `src/config.py`, sửa trực tiếp `BROADCAST_INTERVAL = 5.0` hoặc `PEER_TIMEOUT = 15.0` (mọi luồng trong `src/discovery.py` đều import từ đây nên đổi 1 chỗ là ăn ngay trong 5 giây). | `[ ]` |
+| 3 | **Thêm dấu thời gian `[HH:MM:SS]` vào trước mỗi tin nhắn chat** | `src/main.py`<br>`src/chat_node.py` | Lấy `ts = datetime.now().strftime("%H:%M:%S")` và chèn `[ts]` vào chuỗi hiển thị tại chỗ gửi tin ở `src/main.py` (`[{ts}] [{my_name}] {text}`) và chỗ nhận `MSG` ở `src/chat_node.py` (`[{ts}] [{peer_name}] {msg}`). | `[ ]` |
+| 4 | **Chặn gửi file vượt quá `10MB` hoặc cấm gửi file `.exe`** | `src/file_transfer.py` | Ngay đầu hàm `send_file()` (trước khi mở socket TCP tới peer):<br>1) `if file_path.lower().endswith(".exe"):` -> gọi `on_ui_print("[!] Blocked: .exe files are not allowed.")` và `return`.<br>2) `if os.path.getsize(file_path) > 10 * 1024 * 1024:` -> gọi `on_ui_print("[!] Blocked: File exceeds 10MB limit.")` và `return`. | `[ ]` |
+| 5 | **Thêm lệnh mới `/clear` (xóa màn hình) hoặc `/whoami` (xem thông tin của mình)** | `src/main.py` | Trong hàm `handle_command()` ở `src/main.py`, thêm 1 nhánh `elif cmd == "/whoami":` in ra `name`, `peer_id`, `tcp_port`, `status`, `bcast_addr` (hoặc `elif cmd == "/clear":` gọi `prompt_toolkit.shortcuts.clear()`). | `[ ]` |
