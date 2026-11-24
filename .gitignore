@@ -16,10 +16,11 @@ venv/
 ENV/
 .venv/
 
-# OS metadata
+# OS & Office temporary lock metadata
 .DS_Store
 Thumbs.db
 desktop.ini
+~$*
 
 # IDEs
 .vscode/
